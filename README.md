@@ -1,60 +1,64 @@
-# ✈️ Real-Time Flight Radar & Proximity Alarms
-### End-to-End Data Engineering Project with Microsoft Fabric & Power BI
+# ✈️ Real-Time Flight Radar & Data Engineering Pipeline
+### End-to-End Architecture: Python + Azure Event Hubs + Microsoft Fabric + Power BI
 
-Este proyecto implementa una arquitectura de datos en tiempo real (Streaming) y procesamiento por lotes (Batch) para monitorear el tráfico aéreo utilizando la API de OpenSky, Azure Event Hubs y Microsoft Fabric.
-
----
-
-## 🏗️ Arquitectura del Proyecto
-
-El flujo de datos se divide en dos capas principales (Arquitectura Lambda):
-
-1.  **Ingestión (Streaming):** Un script de Python extrae datos de OpenSky y los envía a **Azure Event Hubs**.
-2.  **Procesamiento (Fabric):** Un Notebook en Microsoft Fabric procesa los mensajes y:
-    * Alimenta un reporte de **Power BI** en tiempo real.
-    * Agrupa los datos y los guarda en un **Lakehouse** en formato **Parquet** cada 5 minutos para análisis histórico.
-3.  **Visualización:** Dashboard en Power BI con alertas de proximidad y KPIs de tráfico.
-
-
+Este proyecto implementa una arquitectura de datos híbrida (Lambda) para el seguimiento de activos aéreos en tiempo real. Combina la ingesta masiva (Batch) con el procesamiento de eventos por segundo (Streaming), culminando en un entorno de análisis avanzado en Microsoft Fabric.
 
 ---
 
-## 🛠️ Tecnologías Utilizadas
+## 🏗️ Arquitectura del Sistema
 
-* **Lenguaje:** Python 3.10 (PySpark)
-* **Ingestión:** Azure Event Hubs
-* **Plataforma de Datos:** Microsoft Fabric (Lakehouse)
-* **Almacenamiento:** Apache Parquet / Delta Table
-* **Visualización:** Power BI (DirectQuery & Import Mode)
+El flujo de datos está diseñado para garantizar la integridad y la escalabilidad:
+
+1.  **Capa Bronze (Raw):** Ingestión directa de la API OpenSky a archivos JSON en el Lakehouse (`ingestion_batch.py`).
+2.  **Capa Silver (Transform):** Limpieza, filtrado geográfico y conversión de unidades (m/s a km/h) usando Spark y Delta Lake (`transform_vuelos_espana.py`).
+3.  **Capa Speed (Streaming):** Transmisión de telemetría viva mediante **Azure Event Hubs** para visualización instantánea (`ingestion_streaming.py`).
+4.  **Capa Gold (Analytics):** Modelado en Power BI para detección de proximidad y KPIs operativos.
+
+
+
+---
+
+## 🛠️ Stack Tecnológico
+
+* **Lenguajes:** Python 3.10, PySpark (Spark SQL).
+* **Ingestión:** Azure Event Hubs (Kafka Interface).
+* **Orquestación y Almacenamiento:** Microsoft Fabric (Lakehouse & Delta Tables).
+* **Formatos:** JSON, Apache Parquet.
+* **BI:** Power BI (DirectQuery para tiempo real).
 
 ---
 
 ## 🚀 Desafíos Técnicos Resueltos
 
-### 1. Optimización de Almacenamiento (Small Files Problem)
-Para evitar la creación de miles de archivos pequeños que ralentizan las consultas, implementé un sistema de **micro-batching** en Python que acumula los datos en memoria y realiza una escritura sólida en Parquet cada 300 segundos.
+### 1. Manejo de Esquemas Dinámicos (Schema Evolution)
+Se implementó `.option("overwriteSchema", "true")` en las tablas Delta para permitir que el pipeline se adapte a cambios en la API de origen sin romper los procesos de carga, garantizando la continuidad del negocio.
 
-### 2. Consistencia de Tipos (Schema Enforcement)
-Gestioné errores de mezcla de tipos (`DoubleType` vs `LongType`) mediante el casting explícito de datos en el proceso de ingesta, asegurando que columnas críticas como `altitud` y `velocidad` mantengan un esquema consistente en el Lakehouse.
+### 2. Optimización de Escritura (Small Files Problem)
+Para evitar la degradación del rendimiento en el Data Lake, el script de streaming acumula mensajes en memoria y realiza una escritura física en Parquet cada 120 segundos, reduciendo la latitud de metadatos en Spark.
+
+### 3. Integridad de Tipos (Data Casting)
+Se resolvió el conflicto de mezcla de tipos (`DoubleType` vs `LongType`) mediante el casting explícito de métricas críticas (altitud y velocidad), asegurando un esquema consistente para el motor de Power BI.
+
+---
+
+## 📂 Estructura del Repositorio
+
+* `notebooks/01_ingestion_batch.py`: Script de captura masiva a capa Bronze.
+* `notebooks/02_ingestion_streaming.py`: Productor de eventos para Azure Event Hubs.
+* `notebooks/03_transform_vuelos_espana.py`: Lógica de transformación y limpieza en Spark.
+* `docs/`: Capturas del Dashboard y diagramas de arquitectura.
+
+---
+
+## 🔧 Configuración Rápida
+
+1.  **Requisitos:** Tener un Workspace en Microsoft Fabric y un Namespace de Azure Event Hubs.
+2.  **Librerías:** Instalar `azure-eventhub` en el entorno de Fabric.
+3.  **Seguridad:** Las claves de conexión han sido omitidas. Asegúrate de configurar tus variables de entorno para `CONNECTION_STR` y `EVENTHUB_NAME`.
 
 ---
 
 ## 📊 Dashboard Preview
-
-* **Mapa en vivo:** Trayectorias de vuelo actualizadas por segundo.
-* **Alertas:** Indicadores visuales cuando un avión entra en el radio de 20km.
-* **Histórico:** Análisis de altitudes promedio y densidad de tráfico por franja horaria.
-
----
-
-## 🔧 Configuración
-
-1.  Clonar el repositorio.
-2.  Configurar un **Environment** en Fabric con la librería `azure-eventhub`.
-3.  Añadir tus credenciales en el script de Python (ver sección de seguridad).
-4.  Ejecutar el Notebook en Microsoft Fabric.
-
----
-
-## 📄 Licencia
-Este proyecto es de código abierto bajo la licencia MIT.
+* **Mapa de Calor:** Densidad de tráfico en espacio aéreo español.
+* **Alertas:** Indicadores dinámicos de proximidad (Radio < 20km).
+* **Métricas:** Velocidades promedio y altitudes máximas por aerolínea.
